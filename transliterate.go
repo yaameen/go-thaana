@@ -22,25 +22,6 @@ var mapAsciiToUnicode = map[byte]int{
 	'(': 40, ')': 41, 'M': 1929, 'P': 1941, 'Q': 65010,
 }
 
-// Debug function to see what's happening
-func DebugString(s string) {
-	println("=== DEBUG ===")
-	println("Input:", s)
-	println("Length:", len(s))
-	println("IsASCIIOnly:", IsASCIIOnly(s))
-	println("HasTransliterationChars:", HasTransliterationChars(s))
-
-	// Check each character
-	for i, b := range []byte(s) {
-		if mapped, ok := mapAsciiToUnicode[b]; ok {
-			println("Char", i, ":", string(b), "->", mapped, "(mapped)")
-		} else {
-			println("Char", i, ":", string(b), "->", int(b), "(not mapped)")
-		}
-	}
-	println("=============")
-}
-
 // IsASCIIOnly checks if string contains only ASCII characters
 func IsASCIIOnly(s string) bool {
 	for _, b := range []byte(s) {
@@ -63,30 +44,21 @@ func HasTransliterationChars(s string) bool {
 
 // ConvertASCIIWord converts a single ASCII word to Thaana
 func ConvertASCIIWord(word string) string {
-	// Debug the word first
-	DebugString(word)
-
 	if !IsASCIIOnly(word) {
-		println("Not ASCII only, returning:", word)
 		return word
 	}
 
 	if !HasTransliterationChars(word) {
-		println("No transliteration chars, returning:", word)
 		return word
 	}
-
-	println("Converting word:", word)
 
 	// Convert to unicode numbers
 	var unicodes []int
 	for _, char := range []byte(word) {
 		if mapped, ok := mapAsciiToUnicode[char]; ok {
 			unicodes = append(unicodes, mapped)
-			println("Mapped", string(char), "to", mapped)
 		} else {
 			unicodes = append(unicodes, int(char))
-			println("No mapping for", string(char), ", using", int(char))
 		}
 	}
 
@@ -106,9 +78,7 @@ func ConvertASCIIWord(word string) string {
 		}
 	}
 
-	result := string(chars)
-	println("Final result:", result)
-	return result
+	return string(chars)
 }
 
 // AsciiToUnicodeNumbers converts ASCII string to array of Unicode code points
@@ -182,28 +152,17 @@ func SafeAsciiToUnicode(s string) string {
 		return s
 	}
 
-	println("=== SafeAsciiToUnicode ===")
-	println("Input:", s)
-
-	// Split by spaces to handle words separately
 	words := strings.Fields(s)
 	var result []string
 
-	for i, word := range words {
-		println("Processing word", i, ":", word)
-
-		// Only convert ASCII words that contain transliteration characters
+	for _, word := range words {
 		if IsASCIIOnly(word) && HasTransliterationChars(word) {
-			println("Converting word:", word)
 			converted := ConvertASCIIWord(word)
 			result = append(result, converted)
 		} else {
-			println("Keeping word as-is:", word)
 			result = append(result, word)
 		}
 	}
 
-	finalResult := strings.Join(result, " ")
-	println("Final result:", finalResult)
-	return finalResult
+	return strings.Join(result, " ")
 }
