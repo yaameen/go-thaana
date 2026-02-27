@@ -1,11 +1,10 @@
 package thaana
 
 import (
-	"bytes"
 	"strings"
 )
 
-// https://github.com/jawish/thaana_conversions_php/blob/49b17bbf70c7f025899149d8bd912c1f8a66b5aa/ThaanaConversions.php#L49
+// Complete ASCII to Unicode mapping for Thaana script
 var mapAsciiToUnicode = map[byte]int{
 	'h': 1920, 'S': 1921, 'n': 1922, 'r': 1923,
 	'b': 1924, 'L': 1925, 'k': 1926, 'a': 1927,
@@ -20,33 +19,191 @@ var mapAsciiToUnicode = map[byte]int{
 	'i': 1960, 'I': 1961, 'u': 1962, 'U': 1963,
 	'e': 1964, 'E': 1965, 'o': 1966, 'O': 1967,
 	'c': 1968, ',': 1548, ';': 1563, '?': 1567,
-	')': 0041, '(': 0040, 'Q': 65010,
+	'(': 40, ')': 41, 'M': 1929, 'P': 1941, 'Q': 65010,
 }
 
-// https://github.com/jawish/thaana_conversions_php/blob/49b17bbf70c7f025899149d8bd912c1f8a66b5aa/ThaanaConversions.php#L103
-func AsciiToUnicodeNumbers(s string) []int {
-	var unicodes []int = []int{}
-	for _, v := range bytes.Split([]byte(s), []byte("")) {
-		if i, ok := mapAsciiToUnicode[v[0]]; ok {
-			unicodes = append(unicodes, i)
+// Debug function to see what's happening
+func DebugString(s string) {
+	println("=== DEBUG ===")
+	println("Input:", s)
+	println("Length:", len(s))
+	println("IsASCIIOnly:", IsASCIIOnly(s))
+	println("HasTransliterationChars:", HasTransliterationChars(s))
+
+	// Check each character
+	for i, b := range []byte(s) {
+		if mapped, ok := mapAsciiToUnicode[b]; ok {
+			println("Char", i, ":", string(b), "->", mapped, "(mapped)")
 		} else {
-			unicodes = append(unicodes, int(v[0]))
+			println("Char", i, ":", string(b), "->", int(b), "(not mapped)")
+		}
+	}
+	println("=============")
+}
+
+// IsASCIIOnly checks if string contains only ASCII characters
+func IsASCIIOnly(s string) bool {
+	for _, b := range []byte(s) {
+		if b > 127 {
+			return false
+		}
+	}
+	return true
+}
+
+// HasTransliterationChars checks if ASCII string has transliteration characters
+func HasTransliterationChars(s string) bool {
+	for _, b := range []byte(s) {
+		if _, ok := mapAsciiToUnicode[b]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// ConvertASCIIWord converts a single ASCII word to Thaana
+func ConvertASCIIWord(word string) string {
+	// Debug the word first
+	DebugString(word)
+
+	if !IsASCIIOnly(word) {
+		println("Not ASCII only, returning:", word)
+		return word
+	}
+
+	if !HasTransliterationChars(word) {
+		println("No transliteration chars, returning:", word)
+		return word
+	}
+
+	println("Converting word:", word)
+
+	// Convert to unicode numbers
+	var unicodes []int
+	for _, char := range []byte(word) {
+		if mapped, ok := mapAsciiToUnicode[char]; ok {
+			unicodes = append(unicodes, mapped)
+			println("Mapped", string(char), "to", mapped)
+		} else {
+			unicodes = append(unicodes, int(char))
+			println("No mapping for", string(char), ", using", int(char))
+		}
+	}
+
+	// Reverse and convert to string (RTL)
+	var chars []rune
+	length := len(unicodes) - 1
+	for i := range unicodes {
+		chars = append(chars, rune(unicodes[length-i]))
+	}
+
+	// Fix parentheses for RTL
+	for i, char := range chars {
+		if char == '(' {
+			chars[i] = ')'
+		} else if char == ')' {
+			chars[i] = '('
+		}
+	}
+
+	result := string(chars)
+	println("Final result:", result)
+	return result
+}
+
+// AsciiToUnicodeNumbers converts ASCII string to array of Unicode code points
+func AsciiToUnicodeNumbers(s string) []int {
+	var unicodes []int
+	for _, char := range []byte(s) {
+		if mapped, ok := mapAsciiToUnicode[char]; ok {
+			unicodes = append(unicodes, mapped)
+		} else {
+			unicodes = append(unicodes, int(char))
 		}
 	}
 	return unicodes
 }
 
-// https://github.com/jawish/thaana_conversions_php/blob/49b17bbf70c7f025899149d8bd912c1f8a66b5aa/ThaanaConversions.php#L156
+// UnicodeNumbersToUtf converts array of Unicode code points to UTF-8 string
 func UnicodeNumbersToUtf(s []int) string {
-	var unicodes = strings.Builder{}
+	var chars []rune
 	length := len(s) - 1
+
 	for i := range s {
-		unicodes.WriteString(string(rune(s[length-i])))
+		chars = append(chars, rune(s[length-i]))
 	}
-	return unicodes.String()
+
+	// Fix parentheses for RTL
+	for i, char := range chars {
+		if char == '(' {
+			chars[i] = ')'
+		} else if char == ')' {
+			chars[i] = '('
+		}
+	}
+
+	return string(chars)
 }
 
-// https://github.com/jawish/thaana_conversions_php/blob/49b17bbf70c7f025899149d8bd912c1f8a66b5aa/ThaanaConversions.php#L156
+// AsciiToUnicode converts ASCII transliteration to Thaana Unicode.
+// Handles mixed content: only ASCII segments are transliterated; existing
+// Unicode (e.g. Thaana) is left unchanged.
 func AsciiToUnicode(s string) string {
-	return UnicodeNumbersToUtf(AsciiToUnicodeNumbers(s))
+	if s == "" {
+		return s
+	}
+	if IsASCIIOnly(s) {
+		return UnicodeNumbersToUtf(AsciiToUnicodeNumbers(s))
+	}
+	var result strings.Builder
+	var asciiBuf strings.Builder
+	for _, r := range s {
+		if r < 128 {
+			asciiBuf.WriteRune(r)
+		} else {
+			if asciiBuf.Len() > 0 {
+				converted := UnicodeNumbersToUtf(AsciiToUnicodeNumbers(asciiBuf.String()))
+				asciiBuf.Reset()
+				result.WriteString(strings.TrimLeft(converted, " "))
+				result.WriteRune(' ')
+			}
+			result.WriteRune(r)
+		}
+	}
+	if asciiBuf.Len() > 0 {
+		result.WriteString(UnicodeNumbersToUtf(AsciiToUnicodeNumbers(asciiBuf.String())))
+	}
+	return result.String()
+}
+
+// SafeAsciiToUnicode processes mixed content word by word
+func SafeAsciiToUnicode(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+
+	println("=== SafeAsciiToUnicode ===")
+	println("Input:", s)
+
+	// Split by spaces to handle words separately
+	words := strings.Fields(s)
+	var result []string
+
+	for i, word := range words {
+		println("Processing word", i, ":", word)
+
+		// Only convert ASCII words that contain transliteration characters
+		if IsASCIIOnly(word) && HasTransliterationChars(word) {
+			println("Converting word:", word)
+			converted := ConvertASCIIWord(word)
+			result = append(result, converted)
+		} else {
+			println("Keeping word as-is:", word)
+			result = append(result, word)
+		}
+	}
+
+	finalResult := strings.Join(result, " ")
+	println("Final result:", finalResult)
+	return finalResult
 }

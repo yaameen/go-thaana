@@ -44,6 +44,15 @@ func TestAscii(t *testing.T) {
 			expectation: "ﷲ 1",
 			fn:          thaana.AsciiToUnicode,
 		},
+
+		// "original": "",
+
+		{
+			name:        "with mixed content",
+			test:        "WfwYcBum ޢަލާނިޔާ ނާޡިމް",
+			expectation: "މުޞްޠަފާ ޢަލާނިޔާ ނާޡިމް",
+			fn:          thaana.AsciiToUnicode,
+		},
 	}
 
 	for _, v := range testCases {
